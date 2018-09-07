@@ -1,6 +1,7 @@
 package com.globalids.logics.udf;
 
 import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
+import org.apache.hadoop.hive.ql.exec.UDFArgumentTypeException;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDTF;
 import org.apache.hadoop.hive.serde2.lazy.LazyArray;
@@ -25,17 +26,17 @@ public class UDFArrayFirst extends GenericUDTF {
         List<ObjectInspector> outFieldOIs = new ArrayList<ObjectInspector>();
 
         if (args.length < 2) {
-            throw new UDFArgumentException("Provide at least 2 args, 1st should be primitive type and other should be primitive type.");
+            throw new UDFArgumentException("Provide at least 2 args, 1st should be primitive type and other should be array type.");
         }
         for (int i = 0; i < args.length; i++) {
             if (i > 0) {
                 if (args[i].getCategory() != ObjectInspector.Category.LIST) {
-                    throw new UDFArgumentException("All arguments except 1st must be an array type.");
+                    throw new UDFArgumentTypeException(i, "All arguments except 1st must be an array type.");
                 }
                 outFieldNames.add("col" + i);
             } else {
                 if (args[i].getCategory() != ObjectInspector.Category.PRIMITIVE) {
-                    throw new UDFArgumentException("1st argument should be primitive type.");
+                    throw new UDFArgumentTypeException(i, "1st argument should be primitive type. Provided " + args[i].getCategory());
                 }
                 outFieldNames.add("id");
             }
@@ -60,7 +61,7 @@ public class UDFArrayFirst extends GenericUDTF {
     public List<List<String>> processInputRecord(Object[] objects) {
 
         List<List<String>> result = new ArrayList<List<String>>();
-        List<String>[] columnWiseDataList = new List[objects.length-1];
+        List<String>[] columnWiseDataList = new List[objects.length - 1];
         Collection<List<String>> shuffleData = new ArrayList<List<String>>();
         try {
             for (int i = 1; i < objects.length; i++) {
@@ -69,10 +70,16 @@ public class UDFArrayFirst extends GenericUDTF {
                 for (Object o : list) {
                     stringList.add(o.toString());
                 }
-                columnWiseDataList[i-1] = stringList;
+                columnWiseDataList[i - 1] = stringList.isEmpty() ? Arrays.asList("") : stringList;
 //                columnWiseDataList[i] = (List<String>) list.stream().map(item -> item.toString()).collect(Collectors.toList());
             }
-            shuffleData = shuffleData(columnWiseDataList);
+            if ((objects[0] != null) && objects[0].toString().length() > 0) {
+                System.out.println("shuffling data for: " + objects[0]);
+                shuffleData = shuffleData(columnWiseDataList);
+                System.out.println("shuffle complete for: " + objects[0]);
+            } else {
+                System.out.println("Skipping shuffling for null value");
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -126,7 +133,7 @@ public class UDFArrayFirst extends GenericUDTF {
         PermutationUtil util = new PermutationUtil();
         List<Collection<String>> collections = new ArrayList<Collection<String>>();
         for (List<String> stringList : list) {
-            if (stringList!=null&&!stringList.isEmpty()) {
+            if (stringList != null && !stringList.isEmpty()) {
                 collections.add(stringList);
             } else {
                 collections.add(Arrays.asList(""));

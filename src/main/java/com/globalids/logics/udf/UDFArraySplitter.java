@@ -1,6 +1,7 @@
 package com.globalids.logics.udf;
 
 import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
+import org.apache.hadoop.hive.ql.exec.UDFArgumentLengthException;
 import org.apache.hadoop.hive.ql.exec.UDFArgumentTypeException;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDTF;
@@ -9,6 +10,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.WritableConstantStringObjectInspector;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -19,7 +21,7 @@ import java.util.List;
 /**
  * Created by debasish paul on 04-09-2018.
  */
-public class UDFArrayFirst extends GenericUDTF {
+public class UDFArraySplitter extends GenericUDTF {
 
     public StructObjectInspector initialize(ObjectInspector[] args) throws UDFArgumentException {
         List<String> outFieldNames = new ArrayList<String>();
@@ -30,17 +32,21 @@ public class UDFArrayFirst extends GenericUDTF {
         }
         for (int i = 0; i < args.length; i++) {
             if (i > 0) {
-                if (args[i].getCategory() != ObjectInspector.Category.LIST) {
-                    throw new UDFArgumentTypeException(i, "All arguments except 1st must be an array type.");
+                if (!args[i].getCategory().equals(ObjectInspector.Category.LIST)) {
+                    outFieldNames.add(((WritableConstantStringObjectInspector) args[i]).getWritableConstantValue().toString());
+                } else {
+                    outFieldOIs.add(PrimitiveObjectInspectorFactory.javaStringObjectInspector);
                 }
-                outFieldNames.add("col" + i);
             } else {
-                if (args[i].getCategory() != ObjectInspector.Category.PRIMITIVE) {
+                if (!args[i].getCategory().equals(ObjectInspector.Category.PRIMITIVE)) {
                     throw new UDFArgumentTypeException(i, "1st argument should be primitive type. Provided " + args[i].getCategory());
                 }
-                outFieldNames.add("id");
+                outFieldOIs.add(PrimitiveObjectInspectorFactory.javaStringObjectInspector);
             }
-            outFieldOIs.add(PrimitiveObjectInspectorFactory.javaStringObjectInspector);
+        }
+
+        if (outFieldOIs.size() != outFieldNames.size()) {
+            throw new UDFArgumentLengthException("Selected number of column and header must be same.");
         }
         return ObjectInspectorFactory.getStandardStructObjectInspector(outFieldNames, outFieldOIs);
     }
@@ -65,6 +71,9 @@ public class UDFArrayFirst extends GenericUDTF {
         Collection<List<String>> shuffleData = new ArrayList<List<String>>();
         try {
             for (int i = 1; i < objects.length; i++) {
+                if (!(objects[i] instanceof LazyArray)) {
+                    break;
+                }
                 List list = ((LazyArray) objects[i]).getList();
                 List<String> stringList = new ArrayList<String>();
                 for (Object o : list) {
@@ -74,11 +83,7 @@ public class UDFArrayFirst extends GenericUDTF {
 //                columnWiseDataList[i] = (List<String>) list.stream().map(item -> item.toString()).collect(Collectors.toList());
             }
             if ((objects[0] != null) && objects[0].toString().length() > 0) {
-                System.out.println("shuffling data for: " + objects[0]);
                 shuffleData = shuffleData(columnWiseDataList);
-                System.out.println("shuffle complete for: " + objects[0]);
-            } else {
-                System.out.println("Skipping shuffling for null value");
             }
         } catch (Exception e) {
             e.printStackTrace();

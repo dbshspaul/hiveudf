@@ -10,7 +10,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.WritableConstantStringObjectInspector;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,19 +31,20 @@ public class UDFArraySplitter extends GenericUDTF {
         }
         for (int i = 0; i < args.length; i++) {
             if (i > 0) {
-                if (!args[i].getCategory().equals(ObjectInspector.Category.LIST)) {
-                    outFieldNames.add(((WritableConstantStringObjectInspector) args[i]).getWritableConstantValue().toString());
-                } else {
-                    outFieldOIs.add(PrimitiveObjectInspectorFactory.javaStringObjectInspector);
+                if (args[i].getCategory() != ObjectInspector.Category.LIST) {
+                    throw new UDFArgumentTypeException(i, "All arguments except 1st must be an array type.");
                 }
+                outFieldNames.add("col" + i);
             } else {
-                if (!args[i].getCategory().equals(ObjectInspector.Category.PRIMITIVE)) {
+                if (args[i].getCategory() != ObjectInspector.Category.PRIMITIVE) {
                     throw new UDFArgumentTypeException(i, "1st argument should be primitive type. Provided " + args[i].getCategory());
                 }
-                outFieldOIs.add(PrimitiveObjectInspectorFactory.javaStringObjectInspector);
+                outFieldNames.add("id");
             }
+            outFieldOIs.add(PrimitiveObjectInspectorFactory.javaStringObjectInspector);
         }
-
+        outFieldNames.add("timestamp");
+        outFieldOIs.add(PrimitiveObjectInspectorFactory.javaLongObjectInspector);
         if (outFieldOIs.size() != outFieldNames.size()) {
             throw new UDFArgumentLengthException("Selected number of column and header must be same.");
         }
@@ -52,7 +52,7 @@ public class UDFArraySplitter extends GenericUDTF {
     }
 
     public void process(Object[] objects) throws HiveException {
-        List<List<String>> objects1 = processInputRecord(objects);
+        List<List<Object>> objects1 = processInputRecord(objects);
         for (Object objects2 : objects1) {
             forward(objects2);
         }
@@ -64,16 +64,13 @@ public class UDFArraySplitter extends GenericUDTF {
     }
 
 
-    public List<List<String>> processInputRecord(Object[] objects) {
+    public List<List<Object>> processInputRecord(Object[] objects) {
 
-        List<List<String>> result = new ArrayList<List<String>>();
+        List<List<Object>> result = new ArrayList<List<Object>>();
         List<String>[] columnWiseDataList = new List[objects.length - 1];
         Collection<List<String>> shuffleData = new ArrayList<List<String>>();
         try {
             for (int i = 1; i < objects.length; i++) {
-                if (!(objects[i] instanceof LazyArray)) {
-                    break;
-                }
                 List list = ((LazyArray) objects[i]).getList();
                 List<String> stringList = new ArrayList<String>();
                 for (Object o : list) {
@@ -84,17 +81,20 @@ public class UDFArraySplitter extends GenericUDTF {
             }
             if ((objects[0] != null) && objects[0].toString().length() > 0) {
                 shuffleData = shuffleData(columnWiseDataList);
+            } else {
+                System.out.println("Skipping shuffling for null value");
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
         /*===================after shuffleData================================*/
         for (List<String> object : shuffleData) {
-            List<String> row = new ArrayList<String>();
+            List<Object> row = new ArrayList<Object>();
             row.add(objects[0].toString());
             for (int i = 0; i < object.size(); i++) {
                 row.add(object.get(i));
             }
+            row.add(System.currentTimeMillis());
             result.add(row);
         }
         return result;

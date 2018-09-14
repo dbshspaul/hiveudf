@@ -6,6 +6,7 @@ import org.apache.hadoop.hive.ql.exec.UDFArgumentTypeException;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDTF;
 import org.apache.hadoop.hive.serde2.lazy.LazyArray;
+import org.apache.hadoop.hive.serde2.lazy.LazyString;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
@@ -30,16 +31,18 @@ public class UDFArraySplitter extends GenericUDTF {
             throw new UDFArgumentException("Provide at least 2 args, 1st should be primitive type and other should be array type.");
         }
         for (int i = 0; i < args.length; i++) {
-            if (i > 0) {
+            if (i > 1) {
                 if (args[i].getCategory() != ObjectInspector.Category.LIST) {
                     throw new UDFArgumentTypeException(i, "All arguments except 1st must be an array type.");
                 }
                 outFieldNames.add("col" + i);
-            } else {
+            } else if (i == 0) {
                 if (args[i].getCategory() != ObjectInspector.Category.PRIMITIVE) {
                     throw new UDFArgumentTypeException(i, "1st argument should be primitive type. Provided " + args[i].getCategory());
                 }
                 outFieldNames.add("id");
+            } else {
+                outFieldNames.add("col" + i);
             }
             outFieldOIs.add(PrimitiveObjectInspectorFactory.javaStringObjectInspector);
         }
@@ -67,18 +70,23 @@ public class UDFArraySplitter extends GenericUDTF {
     public List<List<Object>> processInputRecord(Object[] objects) {
 
         List<List<Object>> result = new ArrayList<List<Object>>();
-        List<String>[] columnWiseDataList = new List[objects.length - 1];
+        int startValue = 1;
+        if (objects[1] instanceof org.apache.hadoop.io.Text || objects[1] instanceof LazyString) {
+            startValue = 2;
+        }
+        List<String>[] columnWiseDataList = new List[objects.length - startValue];
         Collection<List<String>> shuffleData = new ArrayList<List<String>>();
         try {
-            for (int i = 1; i < objects.length; i++) {
+            for (int i = startValue; i < objects.length; i++) {
                 List list = ((LazyArray) objects[i]).getList();
                 List<String> stringList = new ArrayList<String>();
                 for (Object o : list) {
                     stringList.add(o.toString());
                 }
-                columnWiseDataList[i - 1] = stringList.isEmpty() ? Arrays.asList("") : stringList;
+                columnWiseDataList[i - startValue] = stringList.isEmpty() ? Arrays.asList("") : stringList;
 //                columnWiseDataList[i] = (List<String>) list.stream().map(item -> item.toString()).collect(Collectors.toList());
             }
+//            shuffleData = shuffleData(columnWiseDataList);
             if ((objects[0] != null) && objects[0].toString().length() > 0) {
                 shuffleData = shuffleData(columnWiseDataList);
             } else {
@@ -91,6 +99,9 @@ public class UDFArraySplitter extends GenericUDTF {
         for (List<String> object : shuffleData) {
             List<Object> row = new ArrayList<Object>();
             row.add(objects[0].toString());
+            if (startValue==2){
+                row.add(objects[1].toString());
+            }
             for (int i = 0; i < object.size(); i++) {
                 row.add(object.get(i));
             }

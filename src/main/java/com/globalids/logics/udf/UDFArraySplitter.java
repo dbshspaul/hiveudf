@@ -13,6 +13,8 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
 
 import java.io.IOException;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -22,6 +24,8 @@ import java.util.List;
  * Created by debasish paul on 04-09-2018.
  */
 public class UDFArraySplitter extends GenericUDTF {
+
+    private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-mm-dd hh:mm:ss");
 
     public StructObjectInspector initialize(ObjectInspector[] args) throws UDFArgumentException {
         List<String> outFieldNames = new ArrayList<String>();
@@ -47,7 +51,7 @@ public class UDFArraySplitter extends GenericUDTF {
             outFieldOIs.add(PrimitiveObjectInspectorFactory.javaStringObjectInspector);
         }
         outFieldNames.add("timestamp");
-        outFieldOIs.add(PrimitiveObjectInspectorFactory.javaLongObjectInspector);
+        outFieldOIs.add(PrimitiveObjectInspectorFactory.javaTimestampObjectInspector);
         if (outFieldOIs.size() != outFieldNames.size()) {
             throw new UDFArgumentLengthException("Selected number of column and header must be same.");
         }
@@ -99,13 +103,13 @@ public class UDFArraySplitter extends GenericUDTF {
         for (List<String> object : shuffleData) {
             List<Object> row = new ArrayList<Object>();
             row.add(objects[0].toString());
-            if (startValue==2){
+            if (startValue == 2) {
                 row.add(objects[1].toString());
             }
             for (int i = 0; i < object.size(); i++) {
                 row.add(object.get(i));
             }
-            row.add(System.currentTimeMillis());
+            row.add(new Timestamp(System.currentTimeMillis()));
             result.add(row);
         }
         return result;

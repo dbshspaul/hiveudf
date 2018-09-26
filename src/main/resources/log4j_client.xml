@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd" >
+<log4j:configuration>
+    <appender name="stdout" class="org.apache.log4j.ConsoleAppender">
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern" value="[%d{dd MMM yyyy, HH:mm:ss}] %-5p : %m%n"/>
+        </layout>
+        <filter class="org.apache.log4j.varia.LevelRangeFilter">
+            <param name="LevelMin" value="ask#org.apache.log4j.Level"/>
+            <param name="LevelMax" value="fatal"/>
+        </filter>
+    </appender>
+    <appender name="output"
+              class="org.apache.log4j.FileAppender">
+        <param name="File" value="logs/output.log"/>
+
+        <param name="Append" value="true"/>
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern"
+                   value="[%d{dd MMM yyyy, HH:mm:ss} ] %-5p [%c{1}:%L] - %m%n"/>
+        </layout>
+        <filter class="org.apache.log4j.varia.LevelRangeFilter">
+            <param name="LevelMin" value="debug"/>
+            <param name="LevelMax" value="warn"/>
+        </filter>
+    </appender>
+    <appender name="exception"
+              class="org.apache.log4j.FileAppender">
+        <param name="File" value="logs/exception.log"/>
+
+        <param name="Append" value="true"/>
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern"
+                   value="[%d{dd MMM yyyy, HH:mm:ss} ] %-5p : %m%n"/>
+        </layout>
+        <filter class="org.apache.log4j.varia.LevelRangeFilter">
+            <param name="LevelMin" value="error"/>
+            <param name="LevelMax" value="fatal"/>
+        </filter>
+    </appender>
+    <logger name="com.globalids" additivity="false">
+        <level value="ASK" class="org.apache.log4j.Level"/>
+        <appender-ref ref="stdout"/>
+        <appender-ref ref="output"/>
+        <appender-ref ref="exception"/>
+    </logger>
+</log4j:configuration>

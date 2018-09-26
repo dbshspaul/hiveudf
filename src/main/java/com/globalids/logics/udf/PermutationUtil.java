@@ -1,6 +1,9 @@
 package com.globalids.logics.udf;
 
 
+import org.apache.log4j.Logger;
+import org.apache.log4j.xml.DOMConfigurator;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -36,7 +39,7 @@ public class PermutationUtil {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         PermutationUtil util = new PermutationUtil();
 
 //        Collection<List<String>> permutations = util.permutations(Arrays.asList(Arrays.asList("Guest Services Associate", "VIC/DSG-01"),
@@ -50,10 +53,12 @@ public class PermutationUtil {
         List<Collection<String>> collections = new ArrayList<Collection<String>>();
         collections.add(data);
         Collection<List<String>> permutations = util.permutations(collections);
-
-
+        DOMConfigurator.configure("src/main/resources/loggerConfig.xml");
+        Logger logger = Logger.getLogger(PermutationUtil.class);
         for (List<String> permutation : permutations) {
-            System.out.println(permutation);
+            logger.info(permutation);
         }
+
+        logger.error("test exception");
     }
 }

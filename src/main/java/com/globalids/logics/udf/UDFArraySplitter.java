@@ -93,8 +93,6 @@ public class UDFArraySplitter extends GenericUDTF {
 //            shuffleData = shuffleData(columnWiseDataList);
             if ((objects[0] != null) && objects[0].toString().length() > 0) {
                 shuffleData = shuffleData(columnWiseDataList);
-            } else {
-                System.out.println("Skipping shuffling for null value");
             }
         } catch (Exception e) {
             e.printStackTrace();
